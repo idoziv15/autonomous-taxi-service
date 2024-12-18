@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  api_gateway:
+    build: ./gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      - ride_request_service
+      - dispatcher_service
+
+  ride_request_service:
+    build: ./services/ride_request_service
+    ports:
+      - "8001:8001"
+
+  dispatcher_service:
+    build: ./services/dispatcher_service
+    ports:
+      - "8002:8002"
+    depends_on:
+      - taxi_service
+
+  taxi_service:
+    build: ./services/taxi_service
+    ports:
+      - "8003:8003"
+
+  simulation_service:
+    build: ./services/simulation_service
+    depends_on:
+      - api_gateway
+
+  shared_database:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: taxi_service
+    ports:
+      - "5432:5432"
