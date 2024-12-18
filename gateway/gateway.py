@@ -14,3 +14,8 @@ def send_ride_request(request: dict):
 def assign_taxi():
     response = requests.get("http://dispatcher_service:8002/assign")
     return response.json()
+
+@app.post("/taxis/init")
+def initialize_taxis():
+    response = requests.post("http://taxi_service:8003/init-taxis/")
+    return response.json()
