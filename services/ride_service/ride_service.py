@@ -1,20 +1,19 @@
+import pika
 from fastapi import FastAPI
-from shared.database import SessionLocal, RideRequest, init_db
 from shared.models import RideRequestModel
 
 app = FastAPI()
-init_db()
+
+# RabbitMQ Connection
+connection = pika.BlockingConnection(pika.ConnectionParameters("rabbitmq"))
+channel = connection.channel()
+channel.queue_declare(queue="ride_requests")
 
 @app.post("/ride-request/")
 def add_ride_request(request: RideRequestModel):
-    db = SessionLocal()
-    ride = RideRequest(
-        start_x=request.start['x'],
-        start_y=request.start['y'],
-        end_x=request.end['x'],
-        end_y=request.end['y']
+    channel.basic_publish(
+        exchange="",
+        routing_key="ride_requests",
+        body=str(request.dict())
     )
-    db.add(ride)
-    db.commit()
-    db.close()
-    return {"message": "Ride request added"}
+    return {"message": "Ride request added to the queue"}
