@@ -1,5 +1,9 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker
+import redis
+
+# Redis Connection
+redis_client = redis.Redis(host="redis", port=6379, db=0)
 
 DATABASE_URL = "postgresql://user:password@shared_database:5432/taxi_service"
 Base = declarative_base()
