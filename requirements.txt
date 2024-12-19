@@ -5,3 +5,4 @@ aiohttp
 pika
 requests
 pydantic
+python-dotenv

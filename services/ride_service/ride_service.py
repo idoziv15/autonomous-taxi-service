@@ -1,11 +1,20 @@
+from dotenv import load_dotenv
+import os
 import pika
 from fastapi import FastAPI
 from shared.models import RideRequestModel
 
 app = FastAPI()
 
-# RabbitMQ Connection
-connection = pika.BlockingConnection(pika.ConnectionParameters("rabbitmq"))
+# Load environment variables
+load_dotenv()
+
+# RabbitMQ configuration
+RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "rabbitmq")
+RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", 5672))
+
+# RabbitMQ connection
+connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST, port=RABBITMQ_PORT))
 channel = connection.channel()
 channel.queue_declare(queue="ride_requests")
 
