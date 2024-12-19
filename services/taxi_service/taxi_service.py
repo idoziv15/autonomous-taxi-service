@@ -3,6 +3,7 @@ import redis
 from fastapi import FastAPI
 from shared.database import redis_client
 from utils import update_taxi_state
+from shared.models import TaxiModel
 
 app = FastAPI()
 
@@ -42,14 +43,16 @@ def get_all_taxis():
         taxis = []
         for key in redis_client.keys("taxi:*"):
             taxi_data = redis_client.hgetall(key)
-            taxis.append({
-                "id": int(taxi_data[b'id']),
-                "location": {
-                    "x": float(taxi_data[b'location_x']),
-                    "y": float(taxi_data[b'location_y'])
-                },
-                "available": taxi_data[b'available'].decode('utf-8') == "True"
-            })
+            if not taxi_data:
+                continue
+
+            taxi = TaxiModel(
+                id=int(taxi_data[b'id']),
+                location_x=float(taxi_data[b'location_x']),
+                location_y=float(taxi_data[b'location_y']),
+                available=taxi_data[b'available'].decode('utf-8') == "True"
+            )
+            taxis.append(taxi.dict())
         return taxis
     except redis.RedisError as e:
         print(f"Error retrieving taxis from Redis: {e}")
@@ -62,38 +65,38 @@ def get_taxi(taxi_id: int):
     """
     try:
         taxi = redis_client.hgetall(f"taxi:{taxi_id}")
-        if taxi:
-            return {
-                "id": int(taxi[b'id']),
-                "location": {
-                    "x": float(taxi[b'location_x']),
-                    "y": float(taxi[b'location_y'])
-                },
-                "available": taxi[b'available'].decode('utf-8') == "True"
-            }
-        return {"error": "Taxi not found"}
+        if not taxi:
+            return {"error": f"Taxi with ID {taxi_id} not found"}
+        
+        taxi = TaxiModel(
+            id=int(taxi[b'id']),
+            location_x=float(taxi[b'location_x']),
+            location_y=float(taxi[b'location_y']),
+            available=taxi[b'available'].decode('utf-8') == "True"
+        )
+        return taxi.dict()
     except redis.RedisError as e:
         print(f"Error retrieving taxi {taxi_id} from Redis: {e}")
         return {"error": f"Failed to retrieve taxi with ID {taxi_id}"}
 
 @app.post("/taxis/update/")
-def update_taxi(taxi_id: int, location_x: float, location_y: float, available: bool):
+def update_taxi(taxi: TaxiModel):
     """
     Updates a taxi's location and availability status.
     """
-    key = f"taxi:{taxi_id}"
+    key = f"taxi:{taxi.taxi_id}"
     try:
         if redis_client.exists(key):
             redis_client.hset(key, mapping={
-                "location_x": location_x,
-                "location_y": location_y,
-                "available": "True" if available else "False"
+                "location_x": taxi.location_x,
+                "location_y": taxi.location_y,
+                "available": "True" if taxi.available else "False"
             })
             return {"message": "Taxi updated"}
         return {"error": "Taxi not found"}
     except redis.RedisError as e:
-        print(f"Error updating taxi {taxi_id}: {e}")
-        return {"error": f"Failed to update taxi with ID {taxi_id}"}
+        print(f"Error updating taxi {taxi.taxi_id}: {e}")
+        return {"error": f"Failed to update taxi with ID {taxi.taxi_id}"}
 
 
 

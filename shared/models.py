@@ -9,7 +9,8 @@ class RideRequestModel(BaseModel):
 
 class TaxiModel(BaseModel):
     id: int
-    location: dict
+    location_x: float
+    location_y: float
     available: bool
 
     def to_json(self):
