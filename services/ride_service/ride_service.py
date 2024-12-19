@@ -20,9 +20,13 @@ channel.queue_declare(queue="ride_requests")
 
 @app.post("/ride-request/")
 def add_ride_request(request: RideRequestModel):
-    channel.basic_publish(
-        exchange="",
-        routing_key="ride_requests",
-        body=str(request.dict())
-    )
-    return {"message": "Ride request added to the queue"}
+    try:
+        channel.basic_publish(
+            exchange="",
+            routing_key="ride_requests",
+            body=str(request.dict())
+        )
+        return {"message": "Ride request added to the queue"}
+    except pika.exceptions.AMQPError as e:
+        print(f"Error publishing to RabbitMQ: {e}")
+        return {"error": "Failed to add ride request"}

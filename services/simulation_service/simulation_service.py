@@ -8,9 +8,19 @@ TAXIS = 10
 SIMULATION_DURATION = 300
 INTERVAL = 20
 
+def handle_request(method, url, **kwargs):
+    try:
+        response = requests.request(method, url, **kwargs)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Error during request to {url}: {e}")
+        return None
+
 # Initialize taxis with random locations
-response = requests.post("http://localhost:8000/taxis/init/")
-print(response.json())
+response = handle_request("POST", "http://localhost:8000/taxis/init/")
+if response:
+    print(response)
 
 # Run the simulation
 for t in range(0, SIMULATION_DURATION, INTERVAL):
@@ -21,23 +31,26 @@ for t in range(0, SIMULATION_DURATION, INTERVAL):
         "start": {"x": random.randint(0, CITY_SIZE), "y": random.randint(0, CITY_SIZE)},
         "end": {"x": random.randint(0, CITY_SIZE), "y": random.randint(0, CITY_SIZE)}
     }
-    ride_response = requests.post("http://localhost:8000/ride-request/", json=ride_request)
-    print(f"Added ride request: {ride_response.json()}")
+    ride_response = handle_request("POST", "http://localhost:8000/ride-request/", json=ride_request)
+    if ride_response:
+        print(f"Added ride request: {ride_response}")
 
     # Update taxi locations
-    response = requests.post("http://localhost:8000/taxis/update-locations/")
-    print(response.json())
+    response = handle_request("POST", "http://localhost:8000/taxis/update-locations/")
+    if response:
+        print(response)
 
     # Get the state of all taxis
-    taxi_response = requests.get("http://localhost:8000/taxis/")
-    taxis = taxi_response.json()
-    print("Taxis:")
-    for taxi in taxis:
-        availability = 'standing' if taxi['available'] else 'driving'
-        print(f"  Taxi-{taxi['id']}: Location: {taxi['location']} ({availability})")
+    taxi_response = handle_request("GET", "http://localhost:8000/taxis/")
+    if taxi_response:
+        print("Taxis:")
+        for taxi in taxi_response:
+            availability = 'standing' if taxi['available'] else 'driving'
+            print(f"  Taxi-{taxi['id']}: Location: {taxi['location']} ({availability})")
 
     # Try to allocate a taxi for each ride request
-    assign_response = requests.get("http://localhost:8000/dispatcher/assign/")
-    print(assign_response.json())
+    assign_response = handle_request("GET", "http://localhost:8000/dispatcher/assign/")
+    if assign_response:
+        print(assign_response)
 
     time.sleep(INTERVAL)

@@ -21,21 +21,30 @@ channel = connection.channel()
 channel.queue_declare(queue="ride_requests")
 
 async def fetch_taxis():
-    async with aiohttp.ClientSession() as session:
-        async with session.get("http://taxi_service:8003/taxis/") as response:
-            return await response.json()
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get("http://taxi_service:8003/taxis/") as response:
+                response.raise_for_status()
+                return await response.json()
+    except aiohttp.ClientError as e:
+        print(f"Error fetching taxis: {e}")
+        return []
 
 async def update_taxi(taxi_id, location_x, location_y, available):
-    async with aiohttp.ClientSession() as session:
-        await session.post(
-            f"http://taxi_service:8003/taxis/update/",
-            params={
-                "taxi_id": taxi_id,
-                "location_x": location_x,
-                "location_y": location_y,
-                "available": available
-            }
-        )
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"http://taxi_service:8003/taxis/update/",
+                params={
+                    "taxi_id": taxi_id,
+                    "location_x": location_x,
+                    "location_y": location_y,
+                    "available": available
+                }
+            ) as response:
+                response.raise_for_status()
+    except aiohttp.ClientError as e:
+        print(f"Error updating taxi {taxi_id}: {e}")
 
 async def process_request(ride_request, method_frame, fetch_taxis, update_taxi, channel):
     """
@@ -80,14 +89,18 @@ async def assign_taxi():
     # List of async tasks to process all ride requests
     tasks = []
     while True:
-        # Fetch the next ride request from RabbitMQ queue
-        method_frame, _, body = channel.basic_get(queue="ride_requests")
-        if not body:
-            # No more ride requests in the queue
-            break
+        try:
+            # Fetch the next ride request from RabbitMQ queue
+            method_frame, _, body = channel.basic_get(queue="ride_requests")
+            if not body:
+                # No more ride requests in the queue
+                break
 
-        ride_request = eval(body)
-        tasks.append(process_request(ride_request, method_frame, fetch_taxis, update_taxi, channel))
+            ride_request = eval(body)
+            tasks.append(process_request(ride_request, method_frame, fetch_taxis, update_taxi, channel))
+        except pika.exceptions.AMQPError as e:
+            print(f"Error accessing RabbitMQ: {e}")
+            break
 
     # Run all tasks concurrently
     if tasks:
