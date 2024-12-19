@@ -1,8 +1,12 @@
 import random
 from fastapi import FastAPI
 from shared.database import redis_client
+from utils import update_taxi_state
 
 app = FastAPI()
+
+SPEED = 20
+INTERVALS_TIME = 20
 
 @app.post("/init-taxis/")
 def initialize_taxis():
@@ -73,3 +77,17 @@ def update_taxi(taxi_id: int, location_x: float, location_y: float, available: b
         })
         return {"message": "Taxi updated"}
     return {"error": "Taxi not found"}
+
+
+
+@app.post("/taxis/update-locations/")
+def update_taxi_locations():
+    """
+    Updates the locations of all taxis based on their destinations, speed, and 90-degree turn logic.
+    """
+    taxis = redis_client.keys("taxi:*")
+    for taxi_key in taxis:
+        taxi = redis_client.hgetall(taxi_key)
+        if taxi[b'available'].decode('utf-8') == "False":
+            updated_state = update_taxi_state(taxi, SPEED, INTERVALS_TIME)
+            redis_client.hset(taxi_key, mapping=updated_state)
