@@ -1,18 +1,23 @@
-# Node modules
-node_modules/
+# Python bytecode and virtual environments
+__pycache__/
+*.pyc
+*.pyo
+env/
+venv/
 
-# Environment variables
+# Docker-related files
+*.log
+*.pid
+docker-compose.override.yml
+
+# Redis dump file
+dump.rdb
+
+# Environment files
 .env
 
-# Logs
-logs
-*.log
-npm-debug.log*
-
-# Operating system files
+# IDE and OS files
+.vscode/
+*.swp
 .DS_Store
 Thumbs.db
-
-# Other files to ignore
-dist/
-build/

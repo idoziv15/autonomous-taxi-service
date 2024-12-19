@@ -1,9 +1,7 @@
 fastapi
-redis
 uvicorn
-requests
-psycopg2-binary
-sqlalchemy
-pydantic
-sqlalchemy
+redis
+aiohttp
 pika
+requests
+pydantic

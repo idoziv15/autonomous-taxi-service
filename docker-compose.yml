@@ -1,6 +1,16 @@
 version: '3.8'
 
 services:
+  redis:
+    image: redis:6
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+
   api_gateway:
     build: ./gateway
     ports:
@@ -20,22 +30,16 @@ services:
       - "8002:8002"
     depends_on:
       - taxi_service
+      - rabbitmq
 
   taxi_service:
     build: ./services/taxi_service
     ports:
       - "8003:8003"
+    depends_on:
+      - redis
 
   simulation_service:
     build: ./services/simulation_service
     depends_on:
       - api_gateway
-
-  shared_database:
-    image: postgres:13
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: taxi_service
-    ports:
-      - "5432:5432"
