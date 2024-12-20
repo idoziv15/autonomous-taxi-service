@@ -12,21 +12,27 @@ services:
       - "5672:5672"
 
   ride_service:
-    build: ./services/ride_service
+    build:
+      context: .
+      dockerfile: ./services/ride_service/Dockerfile
     ports:
       - "8001:8001"
     depends_on:
       - redis
 
   taxi_service:
-    build: ./services/taxi_service
+    build:
+      context: .
+      dockerfile: ./services/taxi_service/Dockerfile
     ports:
       - "8003:8003"
     depends_on:
       - redis
 
   dispatcher_service:
-    build: ./services/dispatcher_service
+    build:
+      context: .
+      dockerfile: ./services/dispatcher_service/Dockerfile
     ports:
       - "8002:8002"
     depends_on:
@@ -45,6 +51,8 @@ services:
       - dispatcher_service
 
   simulation_service:
-    build: ./services/simulation_service
+    build:
+      context: .
+      dockerfile: ./services/simulation_service/Dockerfile
     depends_on:
       - nginx

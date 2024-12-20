@@ -6,7 +6,7 @@ app = FastAPI()
 # Forward request to Ride Request Service
 @app.post("/ride-request/")
 def send_ride_request(request: dict):
-    response = requests.post("http://ride_request_service:8001/ride-request/", json=request)
+    response = requests.post("http://ride_service:8001/ride-request/", json=request)
     return response.json()
 
 # Forward request to Taxi Service
