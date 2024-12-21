@@ -5,11 +5,21 @@ services:
     image: redis:6
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   rabbitmq:
     image: rabbitmq:3-management
     ports:
       - "5672:5672"
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   ride_service:
     build:
@@ -18,7 +28,10 @@ services:
     ports:
       - "8001:8001"
     depends_on:
-      - redis
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   taxi_service:
     build:
@@ -27,7 +40,8 @@ services:
     ports:
       - "8003:8003"
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
 
   dispatcher_service:
     build:
@@ -36,8 +50,12 @@ services:
     ports:
       - "8002:8002"
     depends_on:
-      - taxi_service
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
+      taxi_service:
+        condition: service_started
+      redis:
+        condition: service_healthy
 
   nginx:
     image: nginx:latest
@@ -46,13 +64,17 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - ride_service
-      - taxi_service
-      - dispatcher_service
+      ride_service:
+        condition: service_started
+      taxi_service:
+        condition: service_started
+      dispatcher_service:
+        condition: service_started
 
   simulation_service:
     build:
       context: .
       dockerfile: ./services/simulation_service/Dockerfile
     depends_on:
-      - nginx
+      nginx:
+        condition: service_started
