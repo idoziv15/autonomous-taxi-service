@@ -56,16 +56,23 @@ DEBUG=true
    cd autonomous-taxi-service
    ```
 2. Build and run the services:
+   #### Option 1:
    ```bash
    docker-compose up --build
    ```
-   -- OR --
+   #### Option 2:
+   Run the following command to grant execute permissions (On macOS or Linux, or with Windows Git Bash or WSL):
+
+   ```bash
+   chmod +x ./scripts/start_app.sh
+   ```
 
    Use this script to build and initialize all the services.
    ```bash
    ./scripts/start_app.sh
    ```
-3. Monitor the simulation in the console.
+
+3. Monitor the simulation in the console. After all the timeouts intervals will be over, you will be able to see all the required prints of the simulation.
 
 ## Usage
 The simulation automatically:
