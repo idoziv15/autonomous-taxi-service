@@ -131,3 +131,8 @@ This is useful when you want to reset the ride request queue.
 ```bash
 ./scripts/reset_rabbitmq.sh
 ```
+
+**Simulation Pictures:**
+![Begining of the simulation](./assets/1.png)
+
+![The end of the simulation](./assets/2.png)
