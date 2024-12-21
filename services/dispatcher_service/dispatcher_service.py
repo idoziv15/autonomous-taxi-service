@@ -16,9 +16,21 @@ RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "rabbitmq")
 RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", 5672))
 
 # RabbitMQ connection
-connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST, port=RABBITMQ_PORT))
-channel = connection.channel()
-channel.queue_declare(queue="ride_requests")
+connection_params = pika.ConnectionParameters(
+    host=RABBITMQ_HOST,
+    port=RABBITMQ_PORT,
+    credentials=pika.PlainCredentials('guest', 'guest'),
+    heartbeat=60,
+    blocked_connection_timeout=300
+)
+
+try:
+    connection = pika.BlockingConnection(connection_params)
+    channel = connection.channel()
+    channel.queue_declare(queue="ride_requests")
+    print("✅ Successfully connected to RabbitMQ")
+except Exception as e:
+    print("❌ RabbitMQ connection failed:", e)
 
 async def fetch_taxis():
     try:
@@ -57,7 +69,7 @@ async def process_request(ride_request, method_frame, fetch_taxis, update_taxi, 
     nearest_taxi = min(
         (taxi for taxi in taxis if taxi['available']),
         key=lambda t: calculate_manhattan_distance(
-            t['location']['x'], t['location']['y'],
+            t['location_x'], t['location_y'],
             ride_request['start']['x'], ride_request['start']['y']
         ),
         default=None
@@ -79,7 +91,7 @@ async def process_request(ride_request, method_frame, fetch_taxis, update_taxi, 
         return {"ride_request": ride_request, "message": "No available taxis"}
 
 
-@app.get("/assign/")
+@app.get("/dispatcher/assign/")
 async def assign_taxi():
     """
     Assigns the nearest available taxi to all ride requests in the queue.

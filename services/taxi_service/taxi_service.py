@@ -112,6 +112,7 @@ def update_taxi_locations():
             if taxi[b'available'].decode('utf-8') == "False":
                 updated_state = update_taxi_state(taxi, SPEED, INTERVALS_TIME)
                 redis_client.hset(taxi_key, mapping=updated_state)
+        return {"message": "Taxis locations updated successfully"}
     except redis.RedisError as e:
         print(f"Error updating taxi locations: {e}")
         return {"error": "Failed to update taxi locations"}
