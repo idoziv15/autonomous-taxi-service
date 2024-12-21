@@ -1,62 +1,30 @@
-from dotenv import load_dotenv
-import os
 import asyncio
 import aiohttp
-from fastapi import FastAPI, HTTPException
-import pika
+from fastapi import FastAPI
 from utils import calculate_manhattan_distance
+from shared.rabbitmq_utils import RabbitMQConnection
 
 app = FastAPI()
-
-# Load environment variables
-load_dotenv()
-
-# RabbitMQ configuration
-RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "rabbitmq")
-RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", 5672))
-
-# Global RabbitMQ connection and channel variables
-connection = None
-channel = None
-
-
-def create_rabbitmq_connection():
-    """
-    Establish RabbitMQ connection and declare the required queue.
-    """
-    global connection, channel
-    try:
-        connection_params = pika.ConnectionParameters(
-            host=RABBITMQ_HOST,
-            port=RABBITMQ_PORT,
-            credentials=pika.PlainCredentials('guest', 'guest'),
-            heartbeat=60,
-            blocked_connection_timeout=300
-        )
-        connection = pika.BlockingConnection(connection_params)
-        channel = connection.channel()
-        channel.queue_declare(queue="ride_requests")
-        print("✅ Successfully connected to RabbitMQ")
-    except pika.exceptions.AMQPError as e:
-        print(f"❌ RabbitMQ connection failed: {e}")
-        connection = None
-        channel = None
-        raise HTTPException(status_code=500, detail="Failed to connect to RabbitMQ")
-
+rabbitmq = RabbitMQConnection(queue='ride_requests')
 
 # Initialize RabbitMQ connection at startup
 @app.on_event("startup")
 def startup_event():
-    create_rabbitmq_connection()
+    rabbitmq.connect()
 
 
 # Safely close RabbitMQ connection at shutdown
 @app.on_event("shutdown")
 def shutdown_event():
-    global connection
-    if connection and not connection.is_closed:
-        connection.close()
-        print("✅ RabbitMQ connection closed.")
+    try:
+        if rabbitmq.connection and not rabbitmq.connection.is_closed:
+            rabbitmq.close()
+            print("✅ RabbitMQ connection closed gracefully.")
+        else:
+            print("ℹ️ RabbitMQ connection was already closed.")
+    except Exception as e:
+        print(f"❌ Error during RabbitMQ shutdown: {e}")
+
 
 
 # Async helper functions for interacting with Taxi Service
@@ -101,8 +69,6 @@ async def process_request(ride_request, method_frame):
     """
     Processes a single ride request: allocates a taxi or leaves it in the queue.
     """
-    global channel
-
     try:
         # Fetch all taxis from Taxi Service asynchronously
         taxis = await fetch_taxis()
@@ -128,18 +94,12 @@ async def process_request(ride_request, method_frame):
                 ride_request['end']['y'],
             )
             # Acknowledge the ride request in RabbitMQ
-            if not channel.is_closed:
-                channel.basic_ack(method_frame.delivery_tag)
+            rabbitmq.channel.basic_ack(method_frame.delivery_tag)
+
             return {"ride_request": ride_request, "taxi_id": nearest_taxi['id']}
         else:
             # No available taxis; keep the ride request in the queue
             return {"ride_request": ride_request, "message": "No available taxis"}
-    except pika.exceptions.AMQPError as e:
-        print(f"❌ RabbitMQ error during message processing: {e}")
-        if channel.is_closed:
-            print("❌ Channel is closed. Reconnecting...")
-            create_rabbitmq_connection()
-        return {"error": "Failed to process ride request"}
     except Exception as e:
         print(f"❌ Unexpected error during processing: {e}")
         return {"error": "An unexpected error occurred"}
@@ -150,31 +110,20 @@ async def assign_taxi():
     """
     Assigns the nearest available taxi to all ride requests in the queue.
     """
-    global connection, channel
-
-    # Ensure RabbitMQ connection and channel are alive
-    if connection is None or connection.is_closed:
-        print("❌ Connection is closed. Reconnecting...")
-        create_rabbitmq_connection()
-
-    if channel is None or channel.is_closed:
-        print("❌ Channel is closed. Reconnecting...")
-        channel = connection.channel()
-        channel.queue_declare(queue="ride_requests")
-
     # List of async tasks to process all ride requests
     tasks = []
+
     while True:
         try:
             # Fetch the next ride request from RabbitMQ queue
-            method_frame, _, body = channel.basic_get(queue="ride_requests")
+            method_frame, _, body = rabbitmq.channel.basic_get(queue="ride_requests")
             if not body:
                 # No more ride requests in the queue
                 break
 
             ride_request = eval(body)
             tasks.append(process_request(ride_request, method_frame))
-        except pika.exceptions.AMQPError as e:
+        except Exception as e:
             print(f"❌ Error accessing RabbitMQ: {e}")
             break
 
