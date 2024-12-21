@@ -9,6 +9,8 @@ app = FastAPI()
 
 SPEED = 20
 INTERVALS_TIME = 20
+CITY_SIZE = 20000
+MAX_TAXIS = 10
 
 @app.post("/init-taxis/")
 def initialize_taxis():
@@ -22,11 +24,11 @@ def initialize_taxis():
             redis_client.delete(key)
         
         # Initialize 10 taxis
-        for taxi_id in range(1, 11):
+        for taxi_id in range(1, MAX_TAXIS + 1):
             redis_client.hset(f"taxi:{taxi_id}", mapping={
                 "id": taxi_id,
-                "location_x": random.randint(0, 20000),
-                "location_y": random.randint(0, 20000),
+                "location_x": random.randint(0, CITY_SIZE),
+                "location_y": random.randint(0, CITY_SIZE),
                 "available": "True"
             })
         return {"message": "Taxis initialized with random locations"}
@@ -82,21 +84,27 @@ def get_taxi(taxi_id: int):
 @app.post("/taxis/update/")
 def update_taxi(taxi: TaxiModel):
     """
-    Updates a taxi's location and availability status.
+    Updates a taxi's location and availability status, and optionally its destination.
     """
-    key = f"taxi:{taxi.taxi_id}"
+    key = f"taxi:{taxi.id}"
     try:
         if redis_client.exists(key):
-            redis_client.hset(key, mapping={
+            mapping = {
                 "location_x": taxi.location_x,
                 "location_y": taxi.location_y,
                 "available": "True" if taxi.available else "False"
-            })
+            }
+
+            if taxi.destination_x is not None and taxi.destination_y is not None:
+                mapping["destination_x"] = taxi.destination_x
+                mapping["destination_y"] = taxi.destination_y
+
+            redis_client.hset(key, mapping=mapping)
             return {"message": "Taxi updated"}
         return {"error": "Taxi not found"}
     except redis.RedisError as e:
-        print(f"Error updating taxi {taxi.taxi_id}: {e}")
-        return {"error": f"Failed to update taxi with ID {taxi.taxi_id}"}
+        print(f"Error updating taxi {taxi.id}: {e}")
+        return {"error": f"Failed to update taxi with ID {taxi.id}"}
 
 
 
@@ -114,5 +122,5 @@ def update_taxi_locations():
                 redis_client.hset(taxi_key, mapping=updated_state)
         return {"message": "Taxis locations updated successfully"}
     except redis.RedisError as e:
-        print(f"Error updating taxi locations: {e}")
+        print(f"❌ Error updating taxi locations: {e}")
         return {"error": "Failed to update taxi locations"}

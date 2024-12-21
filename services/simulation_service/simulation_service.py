@@ -51,6 +51,6 @@ for t in range(0, SIMULATION_DURATION, INTERVAL):
     # Try to allocate a taxi for each ride request
     assign_response = handle_request("GET", f"{BASE_URL}/dispatcher/assign/")
     if assign_response:
-        print(assign_response)
+        print(assign_response['message'])
 
     time.sleep(INTERVAL)
