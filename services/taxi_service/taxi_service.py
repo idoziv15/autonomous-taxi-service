@@ -80,32 +80,51 @@ def get_taxi(taxi_id: int):
     except redis.RedisError as e:
         print(f"Error retrieving taxi {taxi_id} from Redis: {e}")
         return {"error": f"Failed to retrieve taxi with ID {taxi_id}"}
-
+    
 @app.post("/taxis/update/")
 def update_taxi(taxi: TaxiModel):
     """
-    Updates a taxi's location and availability status, and optionally its destination.
+    Safely reserves or updates a taxi's status using Redis transactions.
     """
     key = f"taxi:{taxi.id}"
     try:
-        if redis_client.exists(key):
-            mapping = {
-                "location_x": taxi.location_x,
-                "location_y": taxi.location_y,
-                "available": "True" if taxi.available else "False"
-            }
+        with redis_client.pipeline() as pipe:
+            while True:
+                try:
+                    pipe.watch(key)
+                    
+                    if not redis_client.exists(key):
+                        return {"error": "Taxi not found"}
 
-            if taxi.destination_x is not None and taxi.destination_y is not None:
-                mapping["destination_x"] = taxi.destination_x
-                mapping["destination_y"] = taxi.destination_y
+                    current_taxi = redis_client.hgetall(key)
+                    if current_taxi[b'available'].decode('utf-8') == "False":
+                        return {"error": "Taxi is already reserved"}
 
-            redis_client.hset(key, mapping=mapping)
-            return {"message": "Taxi updated"}
-        return {"error": "Taxi not found"}
+                    mapping = {
+                        "location_x": taxi.location_x,
+                        "location_y": taxi.location_y,
+                        "available": "True" if taxi.available else "False"
+                    }
+
+                    if taxi.destination_x is not None and taxi.destination_y is not None:
+                        mapping["destination_x"] = taxi.destination_x
+                        mapping["destination_y"] = taxi.destination_y
+
+                    # Start the transaction
+                    pipe.multi()
+                    pipe.hset(key, mapping=mapping)
+                    pipe.execute()
+                    break
+
+                except redis.WatchError:
+                    # Retry if the key was modified during transaction
+                    print("🚦 Retry due to concurrent modification on taxi key.")
+                    continue
+
+        return {"message": "Taxi updated successfully"}
     except redis.RedisError as e:
-        print(f"Error updating taxi {taxi.id}: {e}")
+        print(f"❌ Error updating taxi {taxi.id}: {e}")
         return {"error": f"Failed to update taxi with ID {taxi.id}"}
-
 
 
 @app.post("/taxis/update-locations/")

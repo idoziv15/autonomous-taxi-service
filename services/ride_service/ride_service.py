@@ -21,9 +21,6 @@ def add_ride_request(request: RideRequestModel):
         rabbitmq.publish_message(request.json())
         print("✅ Message published successfully")
         return {"message": "Ride request added to the queue"}
-    except pika.exceptions.AMQPError as e:
-        print(f"❌ Error publishing to RabbitMQ: {e}")
-        return {"error": "Failed to add ride request"}
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
         return {"error": "An unexpected error occurred"}
